@@ -4,6 +4,7 @@ require __DIR__ . '/includes/order-numbers.php';
 require __DIR__ . '/includes/receipt-templates.php';
 
 require_login();
+session_write_close();
 header('Content-Type: application/json; charset=UTF-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 

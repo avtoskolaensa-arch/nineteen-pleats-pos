@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS restaurant_tables (
   sort_order INT NOT NULL DEFAULT 0,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY uniq_table_name (name)
+  UNIQUE KEY uniq_table_name (name),
+  KEY idx_tables_active_sort (is_active, sort_order, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS categories (
@@ -41,6 +42,7 @@ CREATE TABLE IF NOT EXISTS products (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uniq_product_name (name),
+  KEY idx_products_active_category_sort (is_active, category_id, sort_order),
   CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -84,23 +86,55 @@ CREATE TABLE IF NOT EXISTS orders (
   user_id INT NULL,
   status ENUM('open','closed','cancelled') NOT NULL DEFAULT 'open',
   total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  subtotal_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  discount_type ENUM('none','percent','amount') NOT NULL DEFAULT 'none',
+  discount_value DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  cancelled_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   payment_type ENUM('cash','card','mixed') NULL,
   cash_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   card_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  cancel_reason VARCHAR(255) NULL,
+  cancelled_by INT NULL,
+  cancelled_at TIMESTAMP NULL DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   closed_at TIMESTAMP NULL DEFAULT NULL,
   CONSTRAINT fk_orders_day FOREIGN KEY (business_day_id) REFERENCES business_days(id),
   CONSTRAINT fk_orders_table FOREIGN KEY (table_id) REFERENCES restaurant_tables(id),
   CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_orders_cancelled_by FOREIGN KEY (cancelled_by) REFERENCES users(id) ON DELETE SET NULL,
   UNIQUE KEY uniq_orders_receipt_number (receipt_number),
   KEY idx_orders_status (status),
-  KEY idx_orders_day (business_day_id)
+  KEY idx_orders_day (business_day_id),
+  KEY idx_orders_day_table_status (business_day_id, table_id, status, id),
+  KEY idx_orders_status_closed (status, closed_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS order_number_sequence (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB AUTO_INCREMENT=1000 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS receipt_templates (
+  type VARCHAR(20) NOT NULL PRIMARY KEY,
+  title VARCHAR(150) NOT NULL,
+  top_note TEXT NULL,
+  bottom_note TEXT NULL,
+  show_restaurant_name TINYINT(1) NOT NULL DEFAULT 1,
+  show_english_name TINYINT(1) NOT NULL DEFAULT 1,
+  show_address TINYINT(1) NOT NULL DEFAULT 1,
+  show_phone TINYINT(1) NOT NULL DEFAULT 1,
+  show_table TINYINT(1) NOT NULL DEFAULT 1,
+  show_datetime TINYINT(1) NOT NULL DEFAULT 1,
+  show_receipt_number TINYINT(1) NOT NULL DEFAULT 1,
+  show_prices TINYINT(1) NOT NULL DEFAULT 1,
+  show_comments TINYINT(1) NOT NULL DEFAULT 1,
+  show_totals TINYINT(1) NOT NULL DEFAULT 0,
+  show_payment TINYINT(1) NOT NULL DEFAULT 0,
+  font_size TINYINT UNSIGNED NOT NULL DEFAULT 13,
+  line_width TINYINT UNSIGNED NOT NULL DEFAULT 32,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS order_items (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -121,6 +155,7 @@ CREATE TABLE IF NOT EXISTS order_items (
   CONSTRAINT fk_items_product FOREIGN KEY (product_id) REFERENCES products(id),
   CONSTRAINT fk_items_cancel_user FOREIGN KEY (cancelled_by) REFERENCES users(id) ON DELETE SET NULL,
   KEY idx_items_order (order_id),
+  KEY idx_items_order_active_sent (order_id, is_cancelled, sent_at),
   KEY idx_items_sent (sent_at),
   KEY idx_items_cancelled (is_cancelled)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

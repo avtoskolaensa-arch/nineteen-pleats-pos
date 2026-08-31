@@ -18,12 +18,6 @@ try {
     error_log('GARBALIA statistics cost schema: ' . $e->getMessage());
 }
 
-function stats_table_exists(string $table): bool {
-    $stmt = db()->prepare('SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
-    $stmt->execute([$table]);
-    return (int)$stmt->fetchColumn() > 0;
-}
-
 function stat_date_range(string $range): array {
     $today = date('Y-m-d');
     switch ($range) {
@@ -58,9 +52,9 @@ $range = $_GET['range'] ?? 'month';
 $startDateTime = $from . ' 00:00:00';
 $endDateTime = $to . ' 23:59:59';
 
-$hasProductCost = table_has_column('order_items', 'product_cost');
-$hasDiscountAmount = table_has_column('orders', 'discount_amount');
-$hasCashMovements = stats_table_exists('cash_movements');
+$hasProductCost = true;
+$hasDiscountAmount = true;
+$hasCashMovements = true;
 
 $discountSelect = $hasDiscountAmount ? 'COALESCE(discount_amount,0) discount_amount' : '0 discount_amount';
 $stmt = db()->prepare("SELECT id, table_id, total, {$discountSelect} FROM orders WHERE status='closed' AND COALESCE(closed_at,created_at) BETWEEN ? AND ?");

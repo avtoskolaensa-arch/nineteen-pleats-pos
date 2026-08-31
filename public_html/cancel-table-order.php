@@ -2,6 +2,7 @@
 require __DIR__ . '/includes/bootstrap.php';
 
 require_login();
+session_write_close();
 header('Content-Type: application/json; charset=UTF-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
@@ -12,18 +13,7 @@ function cancel_table_json(array $payload, int $status = 200): void {
 }
 
 function ensure_order_cancellation_schema(): void {
-    $columns = [
-        'cancelled_total' => "ALTER TABLE orders ADD COLUMN cancelled_total DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER total",
-        'cancel_reason' => "ALTER TABLE orders ADD COLUMN cancel_reason VARCHAR(255) NULL AFTER card_amount",
-        'cancelled_by' => "ALTER TABLE orders ADD COLUMN cancelled_by INT NULL AFTER cancel_reason",
-        'cancelled_at' => "ALTER TABLE orders ADD COLUMN cancelled_at TIMESTAMP NULL DEFAULT NULL AFTER cancelled_by",
-    ];
-
-    foreach ($columns as $column => $sql) {
-        if (!table_has_column('orders', $column)) {
-            db()->exec($sql);
-        }
-    }
+    // Installed by database/schema.sql. Runtime requests must never execute DDL.
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

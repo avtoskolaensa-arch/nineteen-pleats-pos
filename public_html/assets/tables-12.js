@@ -189,38 +189,9 @@
     });
   }
 
-  async function synchronizeTables() {
-    const grid = document.querySelector('.tables-grid');
-    if (!grid) return;
-
-    try {
-      const response = await fetch('/ensure-tables.php', {
-        method: 'POST',
-        credentials: 'same-origin',
-        cache: 'no-store',
-        headers: {
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      });
-      if (!response.ok) return;
-
-      const result = await response.json();
-      if (!result || result.ok !== true || result.changed !== true) return;
-
-      const reloadKey = 'garbalia-tables-and-takeaway-v5';
-      if (sessionStorage.getItem(reloadKey) === '1') return;
-      sessionStorage.setItem(reloadKey, '1');
-      window.location.reload();
-    } catch (error) {
-      // Existing orders remain fully usable if synchronization is temporarily unavailable.
-    }
-  }
-
   function start() {
     injectLayoutStyles();
     organizeTakeawayCards();
-    synchronizeTables();
     window.setTimeout(organizeTakeawayCards, 250);
   }
 

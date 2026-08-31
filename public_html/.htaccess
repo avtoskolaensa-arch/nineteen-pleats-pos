@@ -16,24 +16,16 @@ RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
   Header always set X-Frame-Options "SAMEORIGIN"
   Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS} == 'on'"
-  <FilesMatch "^(app|app-loader|close-confirm|close-confirm-loader|direct-print|cash-movement-polish|pwa|service-worker)\.js$">
-    Header always set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+  <FilesMatch "\.(?:css|js|png|jpg|jpeg|svg|webp|ico|woff|woff2)$">
+    Header always set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
-  <Files "manifest.webmanifest">
+  <FilesMatch "^(service-worker\.js|manifest\.webmanifest)$">
     Header always set Cache-Control "no-cache, must-revalidate, max-age=0"
-  </Files>
+  </FilesMatch>
 </IfModule>
 
 # Serve stylesheet with extra GARBALIA runtime fixes.
 RewriteRule ^assets/style\.css$ assets/style-patched.php [L]
-
-# Load the original app script through a small shared navigation wrapper.
-RewriteCond %{QUERY_STRING} !(^|&)core=1(&|$) [NC]
-RewriteRule ^assets/app\.js$ assets/app-loader.js [L]
-
-# Load the original workflow script together with direct printing.
-RewriteCond %{QUERY_STRING} !(^|&)core=1(&|$) [NC]
-RewriteRule ^assets/close-confirm\.js$ assets/close-confirm-loader.js [L]
 
 # Hide index.php and old ?page= links from the browser URL.
 RewriteCond %{THE_REQUEST} \s/+index\.php[\s?] [NC]

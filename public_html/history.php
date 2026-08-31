@@ -87,17 +87,19 @@ render_header('ისტორია');
 
 <?php if ($detail):
     $items = order_items((int)$detail['id']);
+    $receiptNumber = (int)($detail['receipt_number'] ?? 0) ?: (int)$detail['id'];
     $backParams = ['from'=>$from,'to'=>$to,'table_id'=>$tableId,'product'=>$productSearch];
 ?>
   <section class="card history-detail cashier-history-detail">
     <div class="page-head">
-      <h2>ანგარიში #<?= (int)$detail['id'] ?></h2>
+      <h2>ქვითარი #<?= $receiptNumber ?></h2>
       <div class="cashier-history-detail-actions">
         <?php if ($detail['status'] === 'closed'): ?><a class="btn success cashier-reprint-button" data-reprint-order="1" href="<?= h(url_for('print_final', ['order_id'=>(int)$detail['id'],'reprint'=>1])) ?>">ქვითრის ბეჭდვა</a><?php endif; ?>
         <a class="btn" href="<?= h(url_for('history', $backParams)) ?>">დახურვა</a>
       </div>
     </div>
     <div class="cashier-history-detail-grid">
+      <div data-receipt-number-card="1"><span>ქვითრის ნომერი</span><strong>#<?= $receiptNumber ?></strong></div>
       <div><span>მაგიდა</span><strong><?= h($detail['table_name']) ?></strong></div>
       <div><span>სტატუსი</span><strong><?= h($detail['status']==='cancelled'?'ნულით დახურული':'დახურული') ?></strong></div>
       <div><span>მოლარე</span><strong><?= h($detail['user_name'] ?: '—') ?></strong></div>

@@ -63,57 +63,26 @@ function receipt_template_defaults(): array {
 }
 
 function ensure_receipt_templates_table(): void {
-    static $done = false;
-    if ($done) return;
-
-    db()->exec("CREATE TABLE IF NOT EXISTS receipt_templates (
-        type VARCHAR(20) NOT NULL PRIMARY KEY,
-        title VARCHAR(150) NOT NULL,
-        top_note TEXT NULL,
-        bottom_note TEXT NULL,
-        show_restaurant_name TINYINT(1) NOT NULL DEFAULT 1,
-        show_english_name TINYINT(1) NOT NULL DEFAULT 1,
-        show_address TINYINT(1) NOT NULL DEFAULT 1,
-        show_phone TINYINT(1) NOT NULL DEFAULT 1,
-        show_table TINYINT(1) NOT NULL DEFAULT 1,
-        show_datetime TINYINT(1) NOT NULL DEFAULT 1,
-        show_receipt_number TINYINT(1) NOT NULL DEFAULT 1,
-        show_prices TINYINT(1) NOT NULL DEFAULT 1,
-        show_comments TINYINT(1) NOT NULL DEFAULT 1,
-        show_totals TINYINT(1) NOT NULL DEFAULT 0,
-        show_payment TINYINT(1) NOT NULL DEFAULT 0,
-        font_size TINYINT UNSIGNED NOT NULL DEFAULT 13,
-        line_width TINYINT UNSIGNED NOT NULL DEFAULT 32,
-        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-
-    $defaults = receipt_template_defaults();
-    $stmt = db()->prepare("INSERT IGNORE INTO receipt_templates
-        (type,title,top_note,bottom_note,show_restaurant_name,show_english_name,show_address,show_phone,show_table,show_datetime,show_receipt_number,show_prices,show_comments,show_totals,show_payment,font_size,line_width)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
-    foreach ($defaults as $template) {
-        $stmt->execute([
-            $template['type'], $template['title'], $template['top_note'], $template['bottom_note'],
-            $template['show_restaurant_name'], $template['show_english_name'], $template['show_address'], $template['show_phone'],
-            $template['show_table'], $template['show_datetime'], $template['show_receipt_number'], $template['show_prices'],
-            $template['show_comments'], $template['show_totals'], $template['show_payment'], $template['font_size'], $template['line_width'],
-        ]);
-    }
-    $done = true;
+    // Installed by database/schema.sql. Runtime requests must never execute DDL.
 }
 
 function receipt_template(string $type): array {
     $defaults = receipt_template_defaults();
     $fallback = $defaults[$type] ?? $defaults['bar'];
+    $cache = $GLOBALS['garbalia_receipt_template_cache'] ?? [];
+    if (isset($cache[$type])) return $cache[$type];
+
     try {
         ensure_receipt_templates_table();
         $stmt = db()->prepare('SELECT * FROM receipt_templates WHERE type=? LIMIT 1');
         $stmt->execute([$type]);
         $row = $stmt->fetch();
-        return $row ? array_merge($fallback, $row) : $fallback;
+        $template = $row ? array_merge($fallback, $row) : $fallback;
     } catch (Throwable $e) {
-        return $fallback;
+        $template = $fallback;
     }
+    $GLOBALS['garbalia_receipt_template_cache'][$type] = $template;
+    return $template;
 }
 
 function save_receipt_template(string $type, array $data): void {
@@ -148,12 +117,13 @@ function save_receipt_template(string $type, array $data): void {
         $template['show_table'], $template['show_datetime'], $template['show_receipt_number'], $template['show_prices'],
         $template['show_comments'], $template['show_totals'], $template['show_payment'], $template['font_size'], $template['line_width'],
     ]);
+    $GLOBALS['garbalia_receipt_template_cache'][$type] = $template;
 }
 
 function reset_receipt_templates(): void {
     ensure_receipt_templates_table();
     db()->exec('DELETE FROM receipt_templates');
-    $GLOBALS['garbalia_receipt_templates_reset'] = true;
+    $GLOBALS['garbalia_receipt_template_cache'] = [];
     $defaults = receipt_template_defaults();
     foreach ($defaults as $type => $template) save_receipt_template($type, $template);
 }

@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: text/css; charset=UTF-8');
-header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Cache-Control: public, max-age=31536000, immutable');
 readfile(__DIR__ . '/style.css');
 ?>
 

@@ -2,6 +2,8 @@
 require __DIR__ . '/includes/bootstrap.php';
 require __DIR__ . '/includes/public-menu.php';
 
+session_write_close();
+
 header('Content-Type: application/json; charset=UTF-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');

@@ -65,6 +65,8 @@ function db(): PDO {
     $pdo = new PDO($dsn, cfg('db_user'), cfg('db_pass'), [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_TIMEOUT => 5,
+        PDO::ATTR_PERSISTENT => false,
     ]);
     $pdo->exec('SET NAMES utf8mb4');
     return $pdo;
@@ -96,46 +98,12 @@ function require_admin(): void {
     }
 }
 
-function table_has_column(string $table, string $column): bool {
-    $stmt = db()->prepare('SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
-    $stmt->execute([$table, $column]);
-    return (int)$stmt->fetchColumn() > 0;
-}
-
 function ensure_cash_movements_table(): void {
-    static $done = false;
-    if ($done) return;
-    db()->exec("CREATE TABLE IF NOT EXISTS cash_movements (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        business_day_id INT NOT NULL,
-        user_id INT NULL,
-        type ENUM('add','remove','expense') NOT NULL,
-        amount DECIMAL(10,2) NOT NULL DEFAULT 0,
-        note VARCHAR(255) NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_cash_day (business_day_id),
-        CONSTRAINT fk_cash_movements_day FOREIGN KEY (business_day_id) REFERENCES business_days(id) ON DELETE CASCADE,
-        CONSTRAINT fk_cash_movements_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    $done = true;
+    // Installed by database/schema.sql. Runtime requests must never execute DDL.
 }
 
 function ensure_order_discount_columns(): void {
-    static $done = false;
-    if ($done) return;
-    if (!table_has_column('orders', 'subtotal_total')) {
-        db()->exec("ALTER TABLE orders ADD COLUMN subtotal_total DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER total");
-    }
-    if (!table_has_column('orders', 'discount_type')) {
-        db()->exec("ALTER TABLE orders ADD COLUMN discount_type ENUM('none','percent','amount') NOT NULL DEFAULT 'none' AFTER subtotal_total");
-    }
-    if (!table_has_column('orders', 'discount_value')) {
-        db()->exec("ALTER TABLE orders ADD COLUMN discount_value DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER discount_type");
-    }
-    if (!table_has_column('orders', 'discount_amount')) {
-        db()->exec("ALTER TABLE orders ADD COLUMN discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER discount_value");
-    }
-    $done = true;
+    // Installed by database/schema.sql. Runtime requests must never execute DDL.
 }
 
 function cash_movement_label(string $type): string {
@@ -201,9 +169,22 @@ function current_open_order(int $dayId, int $tableId): ?array {
 
 function create_order(int $dayId, int $tableId): int {
     $uid = current_user()['id'] ?? null;
-    $stmt = db()->prepare("INSERT INTO orders (business_day_id, table_id, user_id, status) VALUES (?, ?, ?, 'open')");
-    $stmt->execute([$dayId, $tableId, $uid]);
-    return (int)db()->lastInsertId();
+    $pdo = db();
+
+    try {
+        $pdo->beginTransaction();
+        $pdo->exec('INSERT INTO order_number_sequence () VALUES ()');
+        $receiptNumber = (int)$pdo->lastInsertId();
+
+        $stmt = $pdo->prepare("INSERT INTO orders (receipt_number, business_day_id, table_id, user_id, status) VALUES (?, ?, ?, ?, 'open')");
+        $stmt->execute([$receiptNumber, $dayId, $tableId, $uid]);
+        $orderId = (int)$pdo->lastInsertId();
+        $pdo->commit();
+        return $orderId;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
 }
 
 function fetch_order(int $orderId): ?array {
@@ -344,7 +325,7 @@ function garbalia_mark_svg(): string {
 
 function render_header(string $title): void {
     $sub = is_logged_in() ? role_label(current_user()['role']) : 'Restaurant Management System';
-    echo '<!doctype html><html lang="ka"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GARBALIA</title><link rel="icon" type="image/png" href="/Logo.png"><link rel="shortcut icon" type="image/png" href="/Logo.png"><link rel="apple-touch-icon" href="/Logo.png"><link rel="stylesheet" href="/assets/style.css?v=24"><link rel="stylesheet" href="/assets/mobile-polish.css?v=1"></head><body class="app-shell">';
+    echo '<!doctype html><html lang="ka"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GARBALIA</title><link rel="icon" type="image/png" href="/Logo.png"><link rel="shortcut icon" type="image/png" href="/Logo.png"><link rel="apple-touch-icon" href="/Logo.png"><link rel="stylesheet" href="/assets/style.css?v=25"><link rel="stylesheet" href="/assets/mobile-polish.css?v=2"></head><body class="app-shell">';
     echo '<header class="topbar"><a class="brand garbalia-brand" href="' . h(url_for('day')) . '"><span class="garbalia-mark">' . garbalia_mark_svg() . '</span><span class="brand-text"><strong class="garbalia-word">GARBALIA POS</strong><small>' . h($sub) . '</small></span></a>';
     if (is_logged_in()) {
         echo '<nav class="nav"><a href="' . h(url_for('day')) . '">დღე</a><a href="' . h(url_for('tables')) . '">მაგიდები</a>';
@@ -362,7 +343,17 @@ function render_header(string $title): void {
 }
 
 function render_footer(): void {
-    echo '</main><footer class="app-footer"><div class="footer-inner"><div class="footer-brand"><span class="footer-mark">' . garbalia_mark_svg() . '</span><div><strong>© GARBALIA POS</strong><small>Restaurant management software</small></div></div><div class="footer-credit"><span>Developed by <b>Giorgi Katamadze</b></span><a class="whatsapp-link" href="https://wa.me/995577785078" target="_blank" rel="noopener">WhatsApp</a></div></div></footer><script src="/assets/app.js?v=22"></script><script src="/assets/close-confirm.js?v=22"></script></body></html>';
+    echo '</main><footer class="app-footer"><div class="footer-inner"><div class="footer-brand"><span class="footer-mark">' . garbalia_mark_svg() . '</span><div><strong>© GARBALIA POS</strong><small>Restaurant management software</small></div></div><div class="footer-credit"><span>Developed by <b>Giorgi Katamadze</b></span><a class="whatsapp-link" href="https://wa.me/995577785078" target="_blank" rel="noopener">WhatsApp</a></div></div></footer>'
+        . '<script defer src="/assets/app.js?v=25"></script>'
+        . '<script defer src="/assets/app-loader.js?v=25"></script>'
+        . '<script defer src="/assets/close-confirm.js?v=23"></script>'
+        . '<script defer src="/assets/direct-print.js?v=3"></script>'
+        . '<script defer src="/assets/cash-movement-polish.js?v=2"></script>'
+        . '<script defer src="/assets/pwa-install.js?v=3"></script>'
+        . '<script defer src="/assets/tables-12.js?v=6"></script>'
+        . '<script defer src="/assets/table-cancel.js?v=2"></script>'
+        . '<script defer src="/assets/table-page-flow.js?v=3"></script>'
+        . '</body></html>';
 }
 
 function receipt_card(string $id, string $title, string $text): string {

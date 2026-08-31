@@ -9,7 +9,7 @@
     if (!document.querySelector('link[rel="manifest"]')) {
       const manifest = document.createElement('link');
       manifest.rel = 'manifest';
-      manifest.href = '/manifest.webmanifest?v=2';
+      manifest.href = '/manifest.webmanifest?v=3';
       document.head.appendChild(manifest);
     }
 
@@ -122,7 +122,7 @@
 
   function registerServiceWorker() {
     if (!('serviceWorker' in navigator) || location.protocol !== 'https:') return;
-    navigator.serviceWorker.register('/service-worker.js?v=2', {scope: '/'}).catch(function () {
+    navigator.serviceWorker.register('/service-worker.js?v=3', {scope: '/'}).catch(function () {
       // The POS remains fully usable in the browser if registration is unavailable.
     });
   }

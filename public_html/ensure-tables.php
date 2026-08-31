@@ -15,6 +15,7 @@ if (!is_logged_in()) {
     echo json_encode(['ok' => false, 'message' => 'Authentication required'], JSON_UNESCAPED_UNICODE);
     exit;
 }
+session_write_close();
 
 $pdo = db();
 $wanted = [

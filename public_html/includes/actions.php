@@ -110,8 +110,8 @@ function handle_post_action(): void {
         }
         $order = current_open_order((int)$day['id'], $tableId);
         $orderId = $order ? (int)$order['id'] : create_order((int)$day['id'], $tableId);
-        $stmt = db()->prepare('INSERT INTO order_items (order_id, product_id, product_name, quantity, price, comment) VALUES (?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$orderId, $productId, $product['name'], $quantity, $product['price'], $comment]);
+        $stmt = db()->prepare('INSERT INTO order_items (order_id, product_id, product_name, quantity, price, product_cost, comment) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        $stmt->execute([$orderId, $productId, $product['name'], $quantity, $product['price'], $product['cost'] ?? 0, $comment]);
         flash('პროდუქტი დაემატა.');
         redirect_to('table', ['id' => $tableId]);
     }

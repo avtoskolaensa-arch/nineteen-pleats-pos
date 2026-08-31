@@ -1,4 +1,4 @@
-const GARBALIA_SW_VERSION = 'garbalia-pos-v4';
+const GARBALIA_SW_VERSION = 'garbalia-pos-v5';
 const STATIC_CACHE = GARBALIA_SW_VERSION + '-static';
 
 self.addEventListener('install', function () {
@@ -24,17 +24,6 @@ function offlinePage() {
   );
 }
 
-function isRuntimeLoader(url) {
-  return url.pathname === '/assets/app.js' ||
-    url.pathname === '/assets/close-confirm.js' ||
-    url.pathname === '/assets/close-confirm-loader.js' ||
-    url.pathname === '/assets/tables-12.js' ||
-    url.pathname === '/assets/table-page-flow.js' ||
-    url.pathname === '/assets/table-cancel.js' ||
-    url.pathname === '/assets/direct-print.js' ||
-    url.pathname === '/service-worker.js';
-}
-
 function isStaticAsset(url) {
   return url.pathname.indexOf('/assets/') === 0 ||
     url.pathname === '/Logo.png' ||
@@ -55,32 +44,15 @@ self.addEventListener('fetch', function (event) {
     return;
   }
 
-  if (isRuntimeLoader(url)) {
-    event.respondWith(
-      fetch(event.request, {cache: 'no-store'}).then(function (response) {
-        if (response && response.ok) {
-          const copy = response.clone();
-          caches.open(STATIC_CACHE).then(function (cache) { cache.put(event.request, copy); });
-        }
-        return response;
-      }).catch(function () {
-        return caches.open(STATIC_CACHE).then(function (cache) { return cache.match(event.request); });
-      })
-    );
-    return;
-  }
-
   if (isStaticAsset(url)) {
     event.respondWith(
       caches.open(STATIC_CACHE).then(function (cache) {
         return cache.match(event.request).then(function (cached) {
-          const network = fetch(event.request).then(function (response) {
+          if (cached) return cached;
+          return fetch(event.request).then(function (response) {
             if (response && response.ok) cache.put(event.request, response.clone());
             return response;
-          }).catch(function () {
-            return cached;
           });
-          return cached || network;
         });
       })
     );
