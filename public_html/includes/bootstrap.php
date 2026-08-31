@@ -350,7 +350,7 @@ function render_footer(): void {
         . '<script defer src="/assets/direct-print.js?v=3"></script>'
         . '<script defer src="/assets/cash-movement-polish.js?v=2"></script>'
         . '<script defer src="/assets/pwa-install.js?v=3"></script>'
-        . '<script defer src="/assets/tables-12.js?v=6"></script>'
+        . '<script defer src="/assets/tables-12.js?v=7"></script>'
         . '<script defer src="/assets/table-cancel.js?v=2"></script>'
         . '<script defer src="/assets/table-page-flow.js?v=3"></script>'
         . '</body></html>';

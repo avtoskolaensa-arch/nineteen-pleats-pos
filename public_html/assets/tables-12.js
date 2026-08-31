@@ -169,7 +169,7 @@
 
     const takeawayCards = Array.from(grid.querySelectorAll('.table-card')).filter(function (card) {
       const name = card.querySelector('span');
-      return name && /^გატანა\s*[1-5]$/i.test(name.textContent.trim());
+      return name && /^გატანა\s*\d+$/i.test(name.textContent.trim());
     });
 
     if (!takeawayCards.length) return;
@@ -178,7 +178,7 @@
     if (!section) {
       section = document.createElement('section');
       section.className = 'garbalia-takeaway-section';
-      section.innerHTML = '<div class="garbalia-takeaway-head"><strong>გატანის შეკვეთები</strong><span>5 გატანა</span></div><div class="garbalia-takeaway-grid"></div>';
+      section.innerHTML = '<div class="garbalia-takeaway-head"><strong>გატანის შეკვეთები</strong><span data-takeaway-count></span></div><div class="garbalia-takeaway-grid"></div>';
       grid.parentNode.insertBefore(section, grid);
     }
 
@@ -187,6 +187,8 @@
       card.classList.add('takeaway-card');
       takeawayGrid.appendChild(card);
     });
+    const count = section.querySelector('[data-takeaway-count]');
+    if (count) count.textContent = takeawayGrid.children.length + ' გატანა';
   }
 
   function start() {
