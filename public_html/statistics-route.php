@@ -78,11 +78,14 @@ function sales_between(string $from, string $to): array {
 PHP;
     $replace($oldSales, $newSales, 'sales_between');
 
-    $replace(
-        "$startDateTime = $from . ' 00:00:00';\n$endDateTime = $to . ' 23:59:59';",
-        "[$startDateTime, $endDateTime] = garbalia_business_range($from, $to);",
-        'main range'
-    );
+    $oldMainRange = <<<'PHP'
+$startDateTime = $from . ' 00:00:00';
+$endDateTime = $to . ' 23:59:59';
+PHP;
+    $newMainRange = <<<'PHP'
+[$startDateTime, $endDateTime] = garbalia_business_range($from, $to);
+PHP;
+    $replace($oldMainRange, $newMainRange, 'main range');
 
     $oldQuick = <<<'PHP'
 $todaySales = sales_between(date('Y-m-d'), date('Y-m-d'));
