@@ -92,20 +92,15 @@
   }
 
   function start() {
+    if (!isTablePage()) return;
     forceNaturalFlow();
-    window.setTimeout(forceNaturalFlow, 100);
-    window.setTimeout(forceNaturalFlow, 400);
-    window.setTimeout(forceNaturalFlow, 1000);
-
-    const observer = new MutationObserver(function () {
-      forceNaturalFlow();
-    });
-    observer.observe(document.documentElement, {subtree:true, childList:true, attributes:true, attributeFilter:['class','style']});
-    window.setTimeout(function () { observer.disconnect(); }, 5000);
+    window.requestAnimationFrame(forceNaturalFlow);
+    window.setTimeout(forceNaturalFlow, 250);
+    window.setTimeout(forceNaturalFlow, 900);
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start);
+    document.addEventListener('DOMContentLoaded', start, {once:true});
   } else {
     start();
   }
