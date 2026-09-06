@@ -55,4 +55,11 @@
       return nativeFetch(input, options).finally(function () { window.clearTimeout(timer); });
     };
   }
+
+  // Ask an existing service worker to check for the newest POS build immediately.
+  if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistration) {
+    navigator.serviceWorker.getRegistration('/').then(function (registration) {
+      if (registration && registration.update) registration.update().catch(function () {});
+    }).catch(function () {});
+  }
 })();
