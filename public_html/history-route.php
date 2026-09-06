@@ -29,30 +29,34 @@ function garbalia_history_patch(string $source, bool $admin): string {
             'მხოლოდ ადმინისტრატორისთვის — ოპერაციული დღე ითვლება 04:00-დან მომდევნო დღის 03:59-მდე.',
             $source
         );
-        return $source;
+    } else {
+        $replace(
+            "\$today = date('Y-m-d');\n\$limitFrom = date('Y-m-d', strtotime('-6 days'));",
+            "\$today = garbalia_business_date();\n\$limitFrom = garbalia_business_date_shift(-6);",
+            'cashier logical dates'
+        );
+        $replace(
+            "\$params = [\$from . ' 00:00:00', \$to . ' 23:59:59'];",
+            "[\$historyStartDateTime, \$historyEndDateTime] = garbalia_business_range(\$from, \$to);\n\$params = [\$historyStartDateTime, \$historyEndDateTime];",
+            'cashier range'
+        );
+        $replace(
+            "    \$stmt->execute([\$viewOrderId, \$limitFrom . ' 00:00:00', \$today . ' 23:59:59']);",
+            "    [\$detailStartDateTime, \$detailEndDateTime] = garbalia_business_range(\$limitFrom, \$today);\n    \$stmt->execute([\$viewOrderId, \$detailStartDateTime, \$detailEndDateTime]);",
+            'cashier detail range'
+        );
+        $source = str_replace("date('Y-m-d', strtotime('-1 day'))", 'garbalia_business_date_shift(-1)', $source);
+        $source = str_replace(
+            'მოლარის წვდომა — ბოლო 7 დღის ანგარიშების ნახვა და ქვითრის ხელახლა დაბეჭდვა.',
+            'მოლარის წვდომა — დღე ითვლება 04:00-დან მომდევნო დღის 03:59-მდე.',
+            $source
+        );
     }
 
-    $replace(
-        "\$today = date('Y-m-d');\n\$limitFrom = date('Y-m-d', strtotime('-6 days'));",
-        "\$today = garbalia_business_date();\n\$limitFrom = garbalia_business_date_shift(-6);",
-        'cashier logical dates'
-    );
-    $replace(
-        "\$params = [\$from . ' 00:00:00', \$to . ' 23:59:59'];",
-        "[\$historyStartDateTime, \$historyEndDateTime] = garbalia_business_range(\$from, \$to);\n\$params = [\$historyStartDateTime, \$historyEndDateTime];",
-        'cashier range'
-    );
-    $replace(
-        "    \$stmt->execute([\$viewOrderId, \$limitFrom . ' 00:00:00', \$today . ' 23:59:59']);",
-        "    [\$detailStartDateTime, \$detailEndDateTime] = garbalia_business_range(\$limitFrom, \$today);\n    \$stmt->execute([\$viewOrderId, \$detailStartDateTime, \$detailEndDateTime]);",
-        'cashier detail range'
-    );
-    $source = str_replace("date('Y-m-d', strtotime('-1 day'))", 'garbalia_business_date_shift(-1)', $source);
-    $source = str_replace(
-        'მოლარის წვდომა — ბოლო 7 დღის ანგარიშების ნახვა და ქვითრის ხელახლა დაბეჭდვა.',
-        'მოლარის წვდომა — დღე ითვლება 04:00-დან მომდევნო დღის 03:59-მდე.',
-        $source
-    );
+    // Closed and cancelled orders always set closed_at. Avoid COALESCE() on the
+    // indexed date column so MySQL can use idx_orders_status_closed efficiently.
+    $source = str_replace('COALESCE(o.closed_at, o.created_at)', 'o.closed_at', $source);
+    $source = str_replace('COALESCE(o.closed_at,o.created_at)', 'o.closed_at', $source);
     return $source;
 }
 
