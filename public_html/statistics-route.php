@@ -1,22 +1,14 @@
 <?php
 require_once __DIR__ . '/includes/business-day.php';
 
-$sourceFile = __DIR__ . '/statistics.php';
-$source = file_get_contents($sourceFile);
-if ($source === false) {
-    http_response_code(500);
-    exit('Statistics source could not be loaded.');
-}
+function garbalia_statistics_patch(string $source): string {
+    $replace = static function (string $old, string $new, string $label) use (&$source): void {
+        $count = 0;
+        $source = str_replace($old, $new, $source, $count);
+        if ($count === 0) error_log('GARBALIA statistics patch missed: ' . $label);
+    };
 
-$replace = static function (string $old, string $new, string $label) use (&$source): void {
-    $count = 0;
-    $source = str_replace($old, $new, $source, $count);
-    if ($count === 0) {
-        error_log('GARBALIA 4AM statistics patch missed: ' . $label);
-    }
-};
-
-$oldDateRange = <<<'PHP'
+    $oldDateRange = <<<'PHP'
 function stat_date_range(string $range): array {
     $today = date('Y-m-d');
     switch ($range) {
@@ -37,7 +29,7 @@ function stat_date_range(string $range): array {
 }
 PHP;
 
-$newDateRange = <<<'PHP'
+    $newDateRange = <<<'PHP'
 function stat_date_range(string $range): array {
     $today = garbalia_business_date();
     $base = new DateTimeImmutable($today . ' 12:00:00');
@@ -59,9 +51,9 @@ function stat_date_range(string $range): array {
     }
 }
 PHP;
-$replace($oldDateRange, $newDateRange, 'stat_date_range');
+    $replace($oldDateRange, $newDateRange, 'date range');
 
-$oldSalesBetween = <<<'PHP'
+    $oldSales = <<<'PHP'
 function sales_between(string $from, string $to): array {
     $stmt = db()->prepare("SELECT COUNT(*) orders_count, COALESCE(SUM(total),0) total FROM orders WHERE status='closed' AND COALESCE(closed_at,created_at) BETWEEN ? AND ?");
     $stmt->execute([$from . ' 00:00:00', $to . ' 23:59:59']);
@@ -72,8 +64,7 @@ function sales_between(string $from, string $to): array {
     ];
 }
 PHP;
-
-$newSalesBetween = <<<'PHP'
+    $newSales = <<<'PHP'
 function sales_between(string $from, string $to): array {
     [$startDateTime, $endDateTime] = garbalia_business_range($from, $to);
     $stmt = db()->prepare("SELECT COUNT(*) orders_count, COALESCE(SUM(total),0) total FROM orders WHERE status='closed' AND COALESCE(closed_at,created_at) BETWEEN ? AND ?");
@@ -85,25 +76,21 @@ function sales_between(string $from, string $to): array {
     ];
 }
 PHP;
-$replace($oldSalesBetween, $newSalesBetween, 'sales_between');
+    $replace($oldSales, $newSales, 'sales_between');
 
-$oldMainRange = <<<'PHP'
-$startDateTime = $from . ' 00:00:00';
-$endDateTime = $to . ' 23:59:59';
-PHP;
-$newMainRange = <<<'PHP'
-[$startDateTime, $endDateTime] = garbalia_business_range($from, $to);
-PHP;
-$replace($oldMainRange, $newMainRange, 'main datetime range');
+    $replace(
+        "$startDateTime = $from . ' 00:00:00';\n$endDateTime = $to . ' 23:59:59';",
+        "[$startDateTime, $endDateTime] = garbalia_business_range($from, $to);",
+        'main range'
+    );
 
-$oldQuickSales = <<<'PHP'
+    $oldQuick = <<<'PHP'
 $todaySales = sales_between(date('Y-m-d'), date('Y-m-d'));
 $yesterdaySales = sales_between(date('Y-m-d', strtotime('-1 day')), date('Y-m-d', strtotime('-1 day')));
 $monthSales = sales_between(date('Y-m-01'), date('Y-m-d'));
 $prevMonthSales = sales_between(date('Y-m-01', strtotime('first day of previous month')), date('Y-m-t', strtotime('last day of previous month')));
 PHP;
-
-$newQuickSales = <<<'PHP'
+    $newQuick = <<<'PHP'
 $businessToday = garbalia_business_date();
 $businessYesterday = garbalia_business_date_shift(-1);
 $businessMonthStart = garbalia_business_month_start($businessToday);
@@ -114,10 +101,40 @@ $yesterdaySales = sales_between($businessYesterday, $businessYesterday);
 $monthSales = sales_between($businessMonthStart, $businessToday);
 $prevMonthSales = sales_between($businessPreviousMonth->format('Y-m-01'), $businessPreviousMonth->format('Y-m-t'));
 PHP;
-$replace($oldQuickSales, $newQuickSales, 'quick comparison sales');
+    $replace($oldQuick, $newQuick, 'quick comparisons');
+
+    return $source;
+}
+
+$sourceFile = __DIR__ . '/statistics.php';
+$cacheFile = __DIR__ . '/.runtime-statistics.php';
+$freshness = max(
+    (int)@filemtime($sourceFile),
+    (int)@filemtime(__DIR__ . '/includes/business-day.php'),
+    (int)@filemtime(__FILE__)
+);
+
+if (!is_file($cacheFile) || (int)@filemtime($cacheFile) < $freshness) {
+    $source = file_get_contents($sourceFile);
+    if ($source === false) {
+        http_response_code(500);
+        exit('Statistics source could not be loaded.');
+    }
+    $source = garbalia_statistics_patch($source);
+    $tmp = $cacheFile . '.tmp-' . getmypid();
+    $written = @file_put_contents($tmp, $source, LOCK_EX);
+    if ($written !== false && @rename($tmp, $cacheFile)) {
+        @chmod($cacheFile, 0640);
+        if (function_exists('opcache_invalidate')) @opcache_invalidate($cacheFile, true);
+    } else {
+        @unlink($tmp);
+        eval('?>' . $source);
+        return;
+    }
+}
 
 ob_start();
-eval('?>' . $source);
+require $cacheFile;
 $html = ob_get_clean();
 
 $reloadAfterMs = max(1000, (garbalia_next_business_cutoff_timestamp() - time() + 2) * 1000);
@@ -131,8 +148,5 @@ $runtimeScript = '<script>(function(){'
     . 'note.textContent="ოპერაციული დღე 04:00–03:59";sub.appendChild(note);}'
     . '})();</script>';
 
-if (strpos($html, '</body>') !== false) {
-    echo str_replace('</body>', $runtimeScript . '</body>', $html);
-} else {
-    echo $html . $runtimeScript;
-}
+if (strpos($html, '</body>') !== false) echo str_replace('</body>', $runtimeScript . '</body>', $html);
+else echo $html . $runtimeScript;
