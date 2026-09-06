@@ -106,6 +106,12 @@ $prevMonthSales = sales_between($businessPreviousMonth->format('Y-m-01'), $busin
 PHP;
     $replace($oldQuick, $newQuick, 'quick comparisons');
 
+    // Closed orders always set closed_at. Using the indexed column directly lets
+    // MySQL use idx_orders_status_closed instead of evaluating COALESCE per row.
+    $source = str_replace('COALESCE(closed_at,created_at)', 'closed_at', $source);
+    $source = str_replace('COALESCE(o.closed_at,o.created_at)', 'o.closed_at', $source);
+    $source = str_replace('COALESCE(o.closed_at, o.created_at)', 'o.closed_at', $source);
+
     return $source;
 }
 
