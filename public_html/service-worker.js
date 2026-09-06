@@ -1,4 +1,4 @@
-const GARBALIA_SW_VERSION = 'garbalia-pos-v5';
+const GARBALIA_SW_VERSION = 'garbalia-pos-v6';
 const STATIC_CACHE = GARBALIA_SW_VERSION + '-static';
 
 self.addEventListener('install', function () {
@@ -31,6 +31,10 @@ function isStaticAsset(url) {
     /\.(?:css|js|png|jpg|jpeg|svg|webp|ico|woff2?)$/i.test(url.pathname);
 }
 
+function isCodeAsset(url) {
+  return /\.(?:css|js)$/i.test(url.pathname) || url.pathname.indexOf('/assets/') === 0 && /\.(?:css|js)$/i.test(url.pathname);
+}
+
 self.addEventListener('fetch', function (event) {
   if (event.request.method !== 'GET') return;
 
@@ -38,23 +42,40 @@ self.addEventListener('fetch', function (event) {
   if (url.origin !== self.location.origin) return;
 
   if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request, {cache: 'no-store'}).catch(offlinePage)
-    );
+    event.respondWith(fetch(event.request, {cache: 'no-store'}).catch(offlinePage));
     return;
   }
 
-  if (isStaticAsset(url)) {
+  if (!isStaticAsset(url)) return;
+
+  // Application code must prefer the network so a POS fix is not hidden behind
+  // an old service-worker cache. Cache remains only as a fallback for transient
+  // network errors.
+  if (isCodeAsset(url)) {
     event.respondWith(
       caches.open(STATIC_CACHE).then(function (cache) {
-        return cache.match(event.request).then(function (cached) {
-          if (cached) return cached;
-          return fetch(event.request).then(function (response) {
-            if (response && response.ok) cache.put(event.request, response.clone());
-            return response;
+        return fetch(event.request, {cache: 'no-cache'}).then(function (response) {
+          if (response && response.ok) cache.put(event.request, response.clone());
+          return response;
+        }).catch(function () {
+          return cache.match(event.request).then(function (cached) {
+            return cached || new Response('', {status: 503});
           });
         });
       })
     );
+    return;
   }
+
+  event.respondWith(
+    caches.open(STATIC_CACHE).then(function (cache) {
+      return cache.match(event.request).then(function (cached) {
+        if (cached) return cached;
+        return fetch(event.request).then(function (response) {
+          if (response && response.ok) cache.put(event.request, response.clone());
+          return response;
+        });
+      });
+    })
+  );
 });
