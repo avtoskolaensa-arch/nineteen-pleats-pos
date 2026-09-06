@@ -2,7 +2,7 @@
   'use strict';
 
   var LOCK_MS = 12000;
-  var PRINT_TIMEOUT_MS = 15000;
+  var ACTION_TIMEOUT_MS = 15000;
 
   function unlock(form) {
     if (!form) return;
@@ -36,20 +36,22 @@
     document.querySelectorAll('form[data-garbalia-submitting="1"]').forEach(unlock);
   });
 
-  // Never let the two critical print POST requests leave the POS looking frozen
-  // indefinitely if shared hosting stalls. Existing direct-print error handling
-  // catches AbortError and restores the controls.
+  // Critical AJAX actions should never leave the interface looking frozen forever
+  // if shared hosting stalls. Their existing catch handlers restore the controls.
   if (window.fetch && window.AbortController && !window.__garbaliaFetchTimeoutInstalled) {
     window.__garbaliaFetchTimeoutInstalled = true;
     var nativeFetch = window.fetch.bind(window);
     window.fetch = function (input, init) {
       var url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
-      var isCriticalPrint = url.indexOf('/send_order_print.php') !== -1 || url.indexOf('/close_order_print.php') !== -1;
-      if (!isCriticalPrint || (init && init.signal)) return nativeFetch(input, init);
+      var isCriticalAction =
+        url.indexOf('/send_order_print.php') !== -1 ||
+        url.indexOf('/close_order_print.php') !== -1 ||
+        url.indexOf('/cancel-table-order.php') !== -1;
+      if (!isCriticalAction || (init && init.signal)) return nativeFetch(input, init);
 
       var controller = new AbortController();
       var options = Object.assign({}, init || {}, {signal: controller.signal});
-      var timer = window.setTimeout(function () { controller.abort(); }, PRINT_TIMEOUT_MS);
+      var timer = window.setTimeout(function () { controller.abort(); }, ACTION_TIMEOUT_MS);
       return nativeFetch(input, options).finally(function () { window.clearTimeout(timer); });
     };
   }
