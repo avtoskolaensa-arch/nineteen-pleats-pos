@@ -3,7 +3,7 @@
 
   function esc(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) {
-      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[c];
     });
   }
 
@@ -71,6 +71,7 @@
     }
 
     ensureCloseForm(card, tableId);
+    if (typeof addCancelButton === 'function') addCancelButton();
 
     if (typeof markOrderItemStates === 'function') markOrderItemStates();
     if (typeof cleanupOrderDeleteControls === 'function') cleanupOrderDeleteControls();
