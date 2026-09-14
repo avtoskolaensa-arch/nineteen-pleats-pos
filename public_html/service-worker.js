@@ -1,4 +1,4 @@
-const GARBALIA_SW_VERSION = 'garbalia-pos-v6';
+const GARBALIA_SW_VERSION = 'garbalia-pos-v7';
 const STATIC_CACHE = GARBALIA_SW_VERSION + '-static';
 
 self.addEventListener('install', function () {
@@ -32,7 +32,7 @@ function isStaticAsset(url) {
 }
 
 function isCodeAsset(url) {
-  return /\.(?:css|js)$/i.test(url.pathname) || url.pathname.indexOf('/assets/') === 0 && /\.(?:css|js)$/i.test(url.pathname);
+  return /\.(?:css|js)$/i.test(url.pathname);
 }
 
 self.addEventListener('fetch', function (event) {
@@ -41,6 +41,8 @@ self.addEventListener('fetch', function (event) {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
+  // Dynamic POS pages must always come from the server so order/table state is
+  // current. Never cache HTML navigations.
   if (event.request.mode === 'navigate') {
     event.respondWith(fetch(event.request, {cache: 'no-store'}).catch(offlinePage));
     return;
@@ -48,18 +50,26 @@ self.addEventListener('fetch', function (event) {
 
   if (!isStaticAsset(url)) return;
 
-  // Application code must prefer the network so a POS fix is not hidden behind
-  // an old service-worker cache. Cache remains only as a fallback for transient
-  // network errors.
+  // All application CSS/JS URLs are versioned (?v=...). Serve a cached version
+  // immediately for zero-wait UI startup, then refresh that exact URL in the
+  // background. A new deployment changes the URL/version, so stale code cannot
+  // mask a new build while repeat page loads avoid unnecessary network waits.
   if (isCodeAsset(url)) {
     event.respondWith(
       caches.open(STATIC_CACHE).then(function (cache) {
-        return fetch(event.request, {cache: 'no-cache'}).then(function (response) {
-          if (response && response.ok) cache.put(event.request, response.clone());
-          return response;
-        }).catch(function () {
-          return cache.match(event.request).then(function (cached) {
-            return cached || new Response('', {status: 503});
+        return cache.match(event.request).then(function (cached) {
+          const refresh = fetch(event.request, {cache: 'no-cache'}).then(function (response) {
+            if (response && response.ok) cache.put(event.request, response.clone());
+            return response;
+          }).catch(function () { return null; });
+
+          if (cached) {
+            event.waitUntil(refresh);
+            return cached;
+          }
+
+          return refresh.then(function (response) {
+            return response || new Response('', {status: 503});
           });
         });
       })
