@@ -1,0 +1,40 @@
+/* Static replacement for the pre-premium rules previously emitted by style-patched.php. */
+
+/* GARBALIA runtime popup refinements */
+.garbalia-confirm-dialog{
+  width:min(470px,calc(100vw - 40px))!important;
+  max-height:calc(100vh - 42px)!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding-bottom:22px!important;
+}
+.garbalia-confirm-info{
+  max-height:min(48vh,420px)!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding-right:2px!important;
+}
+.garbalia-confirm-info div{min-width:0!important}
+.garbalia-confirm-info span,.garbalia-confirm-info strong{min-width:0!important;word-break:break-word!important;overflow-wrap:anywhere!important}
+.garbalia-confirm-info strong{white-space:normal!important;text-align:right!important}
+.garbalia-confirm-actions{position:sticky!important;bottom:0!important;z-index:2!important;margin-top:12px!important;padding-top:10px!important;background:linear-gradient(180deg,rgba(248,236,221,0),#f8ecdd 32%,#f8ecdd 100%)!important}
+@media(max-width:560px){.garbalia-confirm-dialog{width:calc(100vw - 24px)!important;max-height:calc(100vh - 24px)!important;padding:24px 18px 18px!important}.garbalia-confirm-info{max-height:50vh!important}}
+
+/* Premium centered tables screen */
+@media(min-width:981px){
+  body.app-shell:has(.tables-grid) main.wrap{width:min(1480px,100%)!important;flex:1 1 auto!important;display:flex!important;flex-direction:column!important;justify-content:center!important;padding:20px 28px!important}
+  body.app-shell:has(.tables-grid) main.wrap .page-head{width:min(1380px,100%)!important;margin:0 auto 18px!important;align-items:center!important}
+  body.app-shell:has(.tables-grid) main.wrap .page-head h1{font-size:2.05rem!important;letter-spacing:-.035em!important}
+  body.app-shell:has(.tables-grid) main.wrap .live-date-pill{min-height:40px!important;padding:8px 14px!important;border:1px solid rgba(43,27,16,.11)!important;box-shadow:0 10px 24px rgba(43,27,16,.09)!important}
+  body.app-shell:has(.tables-grid) main.wrap .tables-grid{width:min(1380px,100%)!important;margin:0 auto!important;gap:16px!important;align-items:stretch!important}
+  body.app-shell:has(.tables-grid) main.wrap .table-card{min-height:clamp(128px,14.5vh,166px)!important;padding:18px 16px!important;align-items:center!important;justify-content:center!important;text-align:center!important;border-width:1px!important;border-radius:26px!important;box-shadow:0 14px 32px rgba(43,27,16,.10),inset 0 1px 0 rgba(255,255,255,.88)!important;isolation:isolate!important}
+  body.app-shell:has(.tables-grid) main.wrap .table-card:before{background:linear-gradient(145deg,rgba(255,255,255,.72),rgba(255,255,255,.06) 58%,rgba(43,27,16,.025))!important}
+  body.app-shell:has(.tables-grid) main.wrap .table-card:hover{transform:translateY(-4px) scale(1.012)!important;box-shadow:0 20px 40px rgba(43,27,16,.15),inset 0 1px 0 rgba(255,255,255,.92)!important}
+  body.app-shell:has(.tables-grid) main.wrap .table-card span{width:100%!important;text-align:center!important;font-size:1.18rem!important;line-height:1.12!important;letter-spacing:-.02em!important}
+  body.app-shell:has(.tables-grid) main.wrap .table-card strong{margin-top:11px!important;max-width:100%!important;justify-content:center!important;text-align:center!important;padding:7px 12px!important;border:1px solid rgba(43,27,16,.06)!important;background:rgba(255,255,255,.72)!important;box-shadow:0 5px 14px rgba(43,27,16,.06)!important;font-size:.82rem!important}
+  body.app-shell:has(.tables-grid) main.wrap .table-card.free{background:linear-gradient(145deg,#f7fff3 0%,#e9fbe3 100%)!important;border-color:#62aa52!important}
+  body.app-shell:has(.tables-grid) main.wrap .table-card.occupied{background:linear-gradient(145deg,#fff7f3 0%,#ffe8df 100%)!important;border-color:#cf4d3f!important}
+  body.app-shell:has(.tables-grid) main.wrap .table-card.pending{background:linear-gradient(145deg,#fffaf0 0%,#ffedc5 100%)!important;border-color:#d89a27!important}
+}
+@media(min-width:1250px){body.app-shell:has(.tables-grid) main.wrap .tables-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important}}
+@media(min-width:981px) and (max-height:760px){body.app-shell:has(.tables-grid) main.wrap .table-card{min-height:112px!important}body.app-shell:has(.tables-grid) main.wrap .page-head{margin-bottom:12px!important}}
