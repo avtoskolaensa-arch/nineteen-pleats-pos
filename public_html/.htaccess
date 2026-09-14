@@ -72,8 +72,13 @@ RewriteRule ^print_order/?$ print_order.php [QSA,L]
 RewriteRule ^day/?$ day.php [QSA,L]
 RewriteRule ^tables/?$ tables.php [QSA,L]
 RewriteRule ^table/([0-9]+)/?$ table.php?id=$1 [QSA,L]
-RewriteRule ^(login|reports|logout)/?$ index.php?page=$1 [QSA,L]
-RewriteRule ^$ day.php [QSA,L]
+RewriteRule ^login/?$ login.php [QSA,L]
+RewriteRule ^(reports|logout)/?$ index.php?page=$1 [QSA,L]
+
+# The bare domain opens the tiny login entrypoint. Logged-in users are immediately
+# redirected to /day by login.php, while logged-out users avoid the old / -> /login
+# double request that caused a visible white pause on cold opens.
+RewriteRule ^$ login.php [QSA,L]
 
 <Files "config.php">
   Require all denied
