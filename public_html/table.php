@@ -109,7 +109,7 @@ try {
     }
 
     echo '</div></section>';
-    echo '<script defer src="/assets/table-fast-actions.js?v=1"></script>';
+    echo '<script defer src="/assets/table-fast-actions.js?v=2"></script>';
     render_footer();
 } catch (Throwable $e) {
     render_header('შეცდომა');
