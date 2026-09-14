@@ -1,4 +1,4 @@
-const GARBALIA_SW_VERSION = 'garbalia-pos-v7';
+const GARBALIA_SW_VERSION = 'garbalia-pos-v8';
 const STATIC_CACHE = GARBALIA_SW_VERSION + '-static';
 
 self.addEventListener('install', function () {
