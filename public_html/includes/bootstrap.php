@@ -13,8 +13,11 @@ date_default_timezone_set($config['timezone'] ?? 'Asia/Tbilisi');
 // GET requests only need to read the authenticated user. Release PHP's session
 // file lock immediately so a slow DB/page request cannot block another click,
 // tab or AJAX request from the same POS terminal. Preserve one-time flash data.
+// Logout is the exception because it must destroy the active session.
 $GLOBALS['garbalia_flash_snapshot'] = null;
-if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && session_status() === PHP_SESSION_ACTIVE) {
+$requestPath = (string)(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/');
+$isLogoutRequest = (($_GET['page'] ?? '') === 'logout') || preg_match('#/logout/?$#', $requestPath);
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && !$isLogoutRequest && session_status() === PHP_SESSION_ACTIVE) {
     if (!empty($_SESSION['flash'])) {
         $GLOBALS['garbalia_flash_snapshot'] = $_SESSION['flash'];
         unset($_SESSION['flash']);
