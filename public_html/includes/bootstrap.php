@@ -10,6 +10,18 @@ if (!file_exists($configFile)) {
 $config = require $configFile;
 date_default_timezone_set($config['timezone'] ?? 'Asia/Tbilisi');
 
+// GET requests only need to read the authenticated user. Release PHP's session
+// file lock immediately so a slow DB/page request cannot block another click,
+// tab or AJAX request from the same POS terminal. Preserve one-time flash data.
+$GLOBALS['garbalia_flash_snapshot'] = null;
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && session_status() === PHP_SESSION_ACTIVE) {
+    if (!empty($_SESSION['flash'])) {
+        $GLOBALS['garbalia_flash_snapshot'] = $_SESSION['flash'];
+        unset($_SESSION['flash']);
+    }
+    session_write_close();
+}
+
 function cfg(string $key, $default = null) {
     global $config;
     return $config[$key] ?? $default;
@@ -53,6 +65,11 @@ function redirect_to(string $page, array $params = []): void {
 }
 
 function flash(string $message, string $type = 'flash'): void {
+    // GET requests release the session lock early. Re-open only when a redirect
+    // actually needs to write a flash message.
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
     $_SESSION['flash'] = ['message' => $message, 'type' => $type];
 }
 
@@ -68,7 +85,6 @@ function db(): PDO {
         PDO::ATTR_TIMEOUT => 5,
         PDO::ATTR_PERSISTENT => false,
     ]);
-    $pdo->exec('SET NAMES utf8mb4');
     return $pdo;
 }
 
@@ -325,7 +341,7 @@ function garbalia_mark_svg(): string {
 
 function render_header(string $title): void {
     $sub = is_logged_in() ? role_label(current_user()['role']) : 'Restaurant Management System';
-    echo '<!doctype html><html lang="ka"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GARBALIA</title><link rel="icon" type="image/png" href="/Logo.png"><link rel="shortcut icon" type="image/png" href="/Logo.png"><link rel="apple-touch-icon" href="/Logo.png"><link rel="stylesheet" href="/assets/style.css?v=25"><link rel="stylesheet" href="/assets/mobile-polish.css?v=2"></head><body class="app-shell">';
+    echo '<!doctype html><html lang="ka"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GARBALIA</title><link rel="icon" type="image/png" href="/Logo.png"><link rel="shortcut icon" type="image/png" href="/Logo.png"><link rel="apple-touch-icon" href="/Logo.png"><link rel="stylesheet" href="/assets/style.css?v=26"><link rel="stylesheet" href="/assets/mobile-polish.css?v=2"></head><body class="app-shell">';
     echo '<header class="topbar"><a class="brand garbalia-brand" href="' . h(url_for('day')) . '"><span class="garbalia-mark">' . garbalia_mark_svg() . '</span><span class="brand-text"><strong class="garbalia-word">GARBALIA POS</strong><small>' . h($sub) . '</small></span></a>';
     if (is_logged_in()) {
         echo '<nav class="nav"><a href="' . h(url_for('day')) . '">დღე</a><a href="' . h(url_for('tables')) . '">მაგიდები</a>';
@@ -335,24 +351,53 @@ function render_header(string $title): void {
         echo '<a href="' . h(url_for('logout')) . '">გასვლა</a></nav>';
     }
     echo '</header><main class="wrap">';
-    if (!empty($_SESSION['flash'])) {
-        $flash = $_SESSION['flash'];
-        unset($_SESSION['flash']);
+    $flash = $GLOBALS['garbalia_flash_snapshot'] ?? null;
+    if ($flash) {
         echo '<div class="' . h($flash['type'] ?? 'flash') . '">' . h($flash['message'] ?? '') . '</div>';
     }
 }
 
+function garbalia_request_route(): string {
+    $page = trim((string)($_GET['page'] ?? ''));
+    if ($page !== '') return $page;
+    $path = (string)(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/');
+    $first = explode('/', trim($path, '/'))[0] ?? '';
+    if ($first === '' || $first === 'index.php') return 'day';
+    return $first;
+}
+
 function render_footer(): void {
+    $route = garbalia_request_route();
+    $scripts = [
+        '/assets/app.js?v=26',
+        '/assets/app-loader.js?v=26',
+        '/assets/pwa-install.js?v=4',
+    ];
+
+    if ($route === 'day') {
+        $scripts[] = '/assets/close-confirm.js?v=24';
+        $scripts[] = '/assets/cash-movement-polish.js?v=3';
+    } elseif ($route === 'tables') {
+        $scripts[] = '/assets/tables-12.js?v=8';
+    } elseif ($route === 'table') {
+        $scripts[] = '/assets/close-confirm.js?v=24';
+        $scripts[] = '/assets/direct-print.js?v=4';
+        $scripts[] = '/assets/table-cancel.js?v=3';
+        $scripts[] = '/assets/table-page-flow.js?v=4';
+    } elseif ($route === 'history') {
+        $scripts[] = '/assets/close-confirm.js?v=24';
+        $scripts[] = '/assets/direct-print.js?v=4';
+    } elseif ($route === 'receipts') {
+        $scripts[] = '/assets/close-confirm.js?v=24';
+    }
+
+    $scriptHtml = '';
+    foreach ($scripts as $src) {
+        $scriptHtml .= '<script defer src="' . h($src) . '"></script>';
+    }
+
     echo '</main><footer class="app-footer"><div class="footer-inner"><div class="footer-brand"><span class="footer-mark">' . garbalia_mark_svg() . '</span><div><strong>© GARBALIA POS</strong><small>Restaurant management software</small></div></div><div class="footer-credit"><span>Developed by <b>Giorgi Katamadze</b></span><a class="whatsapp-link" href="https://wa.me/995577785078" target="_blank" rel="noopener">WhatsApp</a></div></div></footer>'
-        . '<script defer src="/assets/app.js?v=25"></script>'
-        . '<script defer src="/assets/app-loader.js?v=25"></script>'
-        . '<script defer src="/assets/close-confirm.js?v=23"></script>'
-        . '<script defer src="/assets/direct-print.js?v=3"></script>'
-        . '<script defer src="/assets/cash-movement-polish.js?v=2"></script>'
-        . '<script defer src="/assets/pwa-install.js?v=3"></script>'
-        . '<script defer src="/assets/tables-12.js?v=7"></script>'
-        . '<script defer src="/assets/table-cancel.js?v=2"></script>'
-        . '<script defer src="/assets/table-page-flow.js?v=3"></script>'
+        . $scriptHtml
         . '</body></html>';
 }
 
