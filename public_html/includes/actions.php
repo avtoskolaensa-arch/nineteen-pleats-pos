@@ -27,6 +27,14 @@ function handle_post_action(): void {
 
     require_login();
 
+    // Authentication has already been read from $_SESSION. Do not keep PHP's
+    // session file lock while MySQL is doing work: another click/AJAX request
+    // from the same POS terminal must be able to proceed concurrently. flash()
+    // re-opens the session only when a redirect actually needs to store a message.
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+
     if ($action === 'open_day') {
         if (active_day()) {
             flash('სამუშაო დღე უკვე გახსნილია.');
