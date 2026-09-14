@@ -46,7 +46,8 @@
       var isCriticalAction =
         url.indexOf('/send_order_print.php') !== -1 ||
         url.indexOf('/close_order_print.php') !== -1 ||
-        url.indexOf('/cancel-table-order.php') !== -1;
+        url.indexOf('/cancel-table-order.php') !== -1 ||
+        url.indexOf('/add-item-fast.php') !== -1;
       if (!isCriticalAction || (init && init.signal)) return nativeFetch(input, init);
 
       var controller = new AbortController();
