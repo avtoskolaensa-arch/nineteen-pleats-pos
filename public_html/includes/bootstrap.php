@@ -373,7 +373,7 @@ function render_footer(): void {
     $route = garbalia_request_route();
     $scripts = [
         '/assets/app.js?v=26',
-        '/assets/app-loader.js?v=26',
+        '/assets/app-loader.js?v=27',
         '/assets/pwa-install.js?v=4',
     ];
 
