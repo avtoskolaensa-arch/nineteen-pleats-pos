@@ -64,16 +64,19 @@ RewriteRule ^menu/?$ menu.php [QSA,L]
 RewriteRule ^menu-data/?$ menu-data.php [QSA,L]
 RewriteRule ^menu-qr/?$ menu-qr.php [QSA,L]
 
-# Clean POS routes.
+# Clean POS routes. Hot screens have dedicated lightweight entrypoints so they
+# do not parse/execute the legacy monolithic index.php on every click.
 RewriteRule ^statistics/?$ statistics-route.php [QSA,L]
 RewriteRule ^history/?$ history-route.php [QSA,L]
 RewriteRule ^products/?$ products.php [QSA,L]
 RewriteRule ^receipts/?$ receipts.php [QSA,L]
 RewriteRule ^print_final/?$ print_final.php [QSA,L]
 RewriteRule ^print_order/?$ print_order.php [QSA,L]
+RewriteRule ^day/?$ day.php [QSA,L]
+RewriteRule ^tables/?$ tables.php [QSA,L]
 RewriteRule ^table/([0-9]+)/?$ table.php?id=$1 [QSA,L]
-RewriteRule ^(login|day|tables|reports|logout)/?$ index.php?page=$1 [QSA,L]
-RewriteRule ^$ index.php?page=day [QSA,L]
+RewriteRule ^(login|reports|logout)/?$ index.php?page=$1 [QSA,L]
+RewriteRule ^$ day.php [QSA,L]
 
 <Files "config.php">
   Require all denied
